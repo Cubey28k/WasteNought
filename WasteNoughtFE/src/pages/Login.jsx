@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, registerUser } from '../api/auth';
 import { Button, TextField, Typography, Container, Box, Card, CardContent } from '@mui/material';
+import { AuthContext } from '../AuthContext';
 
 function Login() {
   const navigate = useNavigate();
@@ -13,24 +14,53 @@ function Login() {
   const [securityAnswer, setSecurityAnswer] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState(''); // New state for success message
+  const { login } = useContext(AuthContext)
+
+  //password validation
+  const validatePassword = (password) => {
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return regex.test(password);
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
   
     try {
-      await loginUser({ username, password });
-      navigate('/dashboard');
+        // Use the loginUser function from auth.jsx
+        const response = await loginUser({ username, password });
+        // loginUser already returns response.data because of how auth.jsx is set up
+        const { access_token } = response;
+        
+        // Store the token
+        localStorage.setItem('token', access_token);
+        
+        // Create a user object and update the auth context
+        const userData = {
+            username,
+            token: access_token
+        };
+        login(userData);  // Update the auth context
+        
+        navigate('/dashboard');
     } catch (error) {
-      setError('Invalid credentials, please try again.');
-      console.error('Login failed', error);
+        setError('Invalid credentials, please try again.');
+        console.error('Login failed', error);
     }
-  };
-  
+};
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage(''); // Reset success message
+
+    //Password validation
+    if(!validatePassword(password)) {
+      setError(
+        'Password must be at least 8 characters long, with one uppercase letter, one number, and one special character.'
+      );
+      return; //stops the registration process if password doesn't meet reqs
+    }
 
     try {
       const response = await registerUser({
